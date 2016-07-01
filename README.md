@@ -26,7 +26,7 @@ Leading Ignition Packet 3
 Command: 0x78 0x02 0x85
       
 
-Leading Ignition Map Packet 4
+Leading Ignition Packet 4
 Command: 0x79 0x02 0x84
 
 Trailing Ignition Packet 1
