@@ -77,7 +77,7 @@ void MainWindow::dataAvailable()
     {
         ui->txtConsole->append("0xF0 0x02 0x0D");
         ui->txtConsole->append("Sending reply FC info...Adv");
-        serialport->write(QByteArray::fromHex("F0 20 00 02 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E"));
+        serialport->write(QByteArray::fromHex("F0 20 00 00 1d 28 36 09 1d 02 00 00 00 00 00 00 ff 36 02 01 5d 5c 00 73 00 00 00 00 00 4C 00 00 9C"));
         //serialport->write(QByteArray::fromHex("F0 20 02 03 04 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E"));
         serialport->blockSignals(false);
 
@@ -87,7 +87,7 @@ void MainWindow::dataAvailable()
     {
         ui->txtConsole->append("0xDE 0x02 0x1F");
         ui->txtConsole->append("Sending reply FC info...Sensor Info");
-        serialport->write(QByteArray::fromHex("DE 20 00 02 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12"));
+        serialport->write(QByteArray::fromHex("DE 14 EB 00 36 00 78 00 07 80 13 01 15 01 F2 81 01 00 28 31 F6"));
         serialport->blockSignals(false);
     }
     //Map Indicies
@@ -95,7 +95,7 @@ void MainWindow::dataAvailable()
     {
         ui->txtConsole->append("0xDB 0x02 0x22");
         ui->txtConsole->append("Sending reply FC info...Map Indicies");
-        serialport->write(QByteArray::fromHex("DB 03 0A 0A 0D"));
+        serialport->write(QByteArray::fromHex("DB 04 05 06 15"));
         serialport->blockSignals(false);
     }
     //Aux data (AN1-AN4)
@@ -608,13 +608,6 @@ void MainWindow::dataAvailable()
         ui->txtConsole->append("Sending reply FC info...Not documented ???");
         serialport->write(QByteArray::fromHex("f4 03 02 06")); //
         serialport->blockSignals(false);
-    }
-    if(receivedData[0] == 0xDE)
-        {
-            ui->txtConsole->append("0xDE 0x02 0x1F");
-            ui->txtConsole->append("Sending reply FC info...Sensor Info");
-            serialport->write(QByteArray::fromHex("DE 20 00 02 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12"));
-            serialport->blockSignals(false);
     }
 }
 
