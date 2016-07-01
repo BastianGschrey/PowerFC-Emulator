@@ -609,5 +609,13 @@ void MainWindow::dataAvailable()
         serialport->write(QByteArray::fromHex("f4 03 02 06")); //
         serialport->blockSignals(false);
     }
+    //FC Commander Display
+    if(receivedData[0] == 0xDA)
+    {
+        ui->txtConsole->append("0xDA 0x02 0x23");
+        ui->txtConsole->append("Sending reply FC info...FC Commander Display");
+        serialport->write(QByteArray::fromHex("DA 16 02 06 03 04 05 03 03 03 03 03 02 06 03 04 05 03 03 03 03 03 C9")); //
+        serialport->blockSignals(false);
+    }
 }
 
