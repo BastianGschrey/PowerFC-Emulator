@@ -72,7 +72,7 @@ void MainWindow::dataAvailable()
         serialport->write(QByteArray::fromHex("01 03 01 fa "));
         serialport->blockSignals(false);
     }
-    //Advanced data length byte and checksum byte need to be corrected
+    //Advanced data 
     if(receivedData[0] == 0xF0)
     {
         ui->txtConsole->append("0xF0 0x02 0x0D");
@@ -82,7 +82,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
 
     }
-    //Sensor data length byte and checksum byte need to be corrected
+    //Sensor data 
     if(receivedData[0] == 0xDE)
     {
         ui->txtConsole->append("0xDE 0x02 0x1F");
@@ -98,12 +98,12 @@ void MainWindow::dataAvailable()
         serialport->write(QByteArray::fromHex("DB 04 05 06 15"));
         serialport->blockSignals(false);
     }
-    //Aux data (AN1-AN4)
+    //Aux data (AN1-AN4) /lenght byte and checksum to be verified
     if(receivedData[0] == 0x00)
     {
         ui->txtConsole->append("0x00 0x02 0xFD");
         ui->txtConsole->append("Sending reply FC info...Aux info");
-        serialport->write(QByteArray::fromHex("00 05 33 66 99 CC FC"));
+        serialport->write(QByteArray::fromHex("00 06 33 66 99 CC FB"));
         serialport->blockSignals(false);
     }
     //All values below are simulating my Rx7 FD3S version 4.11 MAP
