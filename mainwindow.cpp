@@ -15,7 +15,6 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
-
     serialport = new QSerialPort(this);
     serialport->setBaudRate(QSerialPort::Baud57600);
     //serialport->setPortName("tnt1"); //used for linux with tty0tty
@@ -91,24 +90,22 @@ void MainWindow::dataAvailable()
         serialport->write(QByteArray::fromHex("DE 20 00 02 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12"));
         serialport->blockSignals(false);
     }
-    //Map Indicies length byte and checksum byte need to be corrected
+    //Map Indicies
     if(receivedData[0] == 0xDB)
     {
         ui->txtConsole->append("0xDB 0x02 0x22");
         ui->txtConsole->append("Sending reply FC info...Map Indicies");
-        serialport->write(QByteArray::fromHex("DB 20 20 20 20"));
+        serialport->write(QByteArray::fromHex("DB 03 0A 0A 0D"));
         serialport->blockSignals(false);
     }
-    //Aux data length byte and checksum byte need to be corrected
+    //Aux data (AN1-AN4)
     if(receivedData[0] == 0x00)
     {
         ui->txtConsole->append("0x00 0x02 0xFD");
         ui->txtConsole->append("Sending reply FC info...Aux info");
-        serialport->write(QByteArray::fromHex("00 04 F1 F2 20 20 20"));
+        serialport->write(QByteArray::fromHex("00 05 33 66 99 CC FC"));
         serialport->blockSignals(false);
     }
-
-
     //All values below are simulating my Rx7 FD3S version 4.11 MAP
 
 
@@ -619,21 +616,5 @@ void MainWindow::dataAvailable()
             serialport->write(QByteArray::fromHex("DE 20 00 02 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12"));
             serialport->blockSignals(false);
     }
-    if(receivedData[0] == 0xDB)
-        {
-            ui->txtConsole->append("0xDB 0x02 0x22");
-            ui->txtConsole->append("Sending reply FC info...Map Indicies");
-            serialport->write(QByteArray::fromHex("DB 20 20 20 20 "));
-            serialport->blockSignals(false);
-    }
-    if(receivedData[0] == 0x00)
-        {
-            ui->txtConsole->append("0x00 0x02 0xFD");
-            ui->txtConsole->append("Sending reply FC info...Aux info");
-            serialport->write(QByteArray::fromHex("00 20 F1 F2 20 20 20"));
-            serialport->blockSignals(false);
-}
-
-
 }
 
