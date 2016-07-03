@@ -64,6 +64,14 @@ void MainWindow::dataAvailable()
     serialport->blockSignals(true);
     qDebug() <<  "Serial signal raised";
 
+// Process to calculate checksum
+    for (int i = 1; i <= receivedData[1]-1; i++)
+    {
+    int calc = 0xFF - receivedData[0];
+    int checksum = calc - receivedData[i];
+    ui->txtConsole->append(+ "Calculated Checksum " + QString::number(checksum,16));
+    }
+
     //First request from FC Edit ?
     if(receivedData[0] == 0x01)
     {
