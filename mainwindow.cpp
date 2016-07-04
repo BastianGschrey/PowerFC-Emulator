@@ -65,12 +65,12 @@ void MainWindow::dataAvailable()
     qDebug() <<  "Serial signal raised";
 
 // Process to calculate checksum
-    for (int i = 1; i <= receivedData[1]-1; i++)
+    int checksum = 0xFF;
+    for (int i = 0; i <= receivedData[1]-1; i++)
     {
-    int calc = 0xFF - receivedData[0];
-    int checksum = calc - receivedData[i];
-    ui->txtConsole->append(+ "Calculated Checksum " + QString::number(checksum,16));
+    checksum = checksum - receivedData[i];
     }
+    ui->txtConsole->append(+ "Calculated Checksum " + QString::number(checksum,16));
 
     //First request from FC Edit ?
     if(receivedData[0] == 0x01)
