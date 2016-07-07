@@ -111,7 +111,7 @@ void MainWindow::dataAvailable()
     {
         ui->txtConsole->append("0xDA 0x02 0x23");
         ui->txtConsole->append("Sending reply FC info...FC Commander Display");
-        serialport->write(QByteArray::fromHex("DA 16 02 06 03 04 05 03 03 03 03 03 02 06 03 04 05 03 03 03 03 03 C9")); //
+        serialport->write(QByteArray::fromHex("da 16 00 00 00 00 00 00 00 00 00 00 f6 02 00 00 5c 00 5b 00 7d 00 e3")); //
         serialport->blockSignals(false);
     }
     // Sensor Strings
