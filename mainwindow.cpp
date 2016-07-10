@@ -18,7 +18,7 @@ MainWindow::MainWindow(QWidget *parent) :
     serialport = new QSerialPort(this);
     serialport->setBaudRate(QSerialPort::Baud57600);
     //serialport->setPortName("tnt1"); //used for linux with tty0tty
-    serialport->setPortName("COM16");
+    serialport->setPortName("COM10");
     serialport->setParity(serialport->NoParity);
 
     serialport->setDataBits(QSerialPort::Data8);
@@ -170,7 +170,7 @@ void MainWindow::dataAvailable()
         ui->txtConsole->append("0xF0 0x02 0x0D");
         ui->txtConsole->append("Sending reply FC info...Adv");
         serialport->write(QByteArray::fromHex("F0 20 00 00 1d 28 36 09 1d 02 00 00 00 00 00 00 ff 36 02 01 5d 5c 00 73 00 00 00 00 00 4C 00 00 9C"));
-        //serialport->write(QByteArray::fromHex("F0 20 02 03 04 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E"));
+      //  serialport->write(QByteArray::fromHex("f0 28 00 00 6d 28 45 09 27 02 00 00 00 00 00 00 ff 36 02 01 5d 5c 00 7c 00 00 00 00 00 4c 00 00 00 00 00 00 00 00 00 00 22"));
         serialport->blockSignals(false);
 
     }
@@ -201,11 +201,19 @@ void MainWindow::dataAvailable()
     //All values below are simulating my Rx7 FD3S version 4.11 MAP
     //Read and write packets
 
+    //This packet is sent by the Apexi Pro Software
+    if(receivedData[0] == 0xF8 && receivedData[01] == 0x06 && receivedchecksum == checksum)
+    {
+        ui->txtConsole->append("0xf8 0x06 0x06 0x07 0x03 0x03 0xee");
+        ui->txtConsole->append("Sending reply FC info...Unknown Apexi FC Pro command");
+        serialport->write(QByteArray::fromHex("f8 0a e0 0e c8 12 b0 16 98 1a "));
+        serialport->blockSignals(false);
+    }
+
     // Leading Ignition Packet 1
     if(receivedData[0] == 0x76 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
     {
         ui->txtConsole->append("0x76 0x02 0x87");
-        ui->txtConsole->append(+ "tesr " + QString::number(Lignition1[6]).toUpper());
         ui->txtConsole->append("Sending reply FC info...Leading Ignition Packet1");
         serialport->write(QByteArray::fromHex("76 66 1e 1e 1e 1e 1e 22 22 1f 1d 1c 19 18 17 17 17 17 17 17 17 17 1e 1e 1e 1e 22 28 25 22 1f 1d 1b 1a 19 18 18 18 18 18 18 18 22 22 22 22 2a 2e 2a 24 22 1f 1d 1b 1a 18 18 18 18 18 18 18 2a 2a 2a 2f 2f 2f 2e 29 27 26 22 21 1e 1a 1a 19 19 19 19 19 35 35 35 34 32 30 2d 2a 28 27 26 23 21 1f 1d 1b 19 18 18 18 a6"));
         //serialport->write (Lignition1);
@@ -1163,6 +1171,38 @@ void MainWindow::dataAvailable()
         ui->txtConsole->append("Write Not documented ??? to PowerFC");
         ui->txtConsole->append("Power FC Send Acknlowedged 0xF2 0x02 0x0B");
         serialport->write(QByteArray::fromHex("F2 02 0B"));
+        serialport->blockSignals(false);
+    }
+    // Not documented ???
+    if(receivedData[0] == 0xBD && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    {
+        ui->txtConsole->append("0xBD 0x02 0x40");
+        ui->txtConsole->append("Sending reply FC info...Not documented ???");
+        serialport->write(QByteArray::fromHex("BD 03 00 3F")); //
+        serialport->blockSignals(false);
+    }
+    // Not documented ???
+    if(receivedData[0] == 0xBE && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    {
+        ui->txtConsole->append("0xBE 0x02 0x3F");
+        ui->txtConsole->append("Sending reply FC info...Not documented ???");
+        serialport->write(QByteArray::fromHex("BE 03 00 3E")); //
+        serialport->blockSignals(false);
+    }
+    // Not documented ???
+    if(receivedData[0] == 0xD8 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    {
+        ui->txtConsole->append("0xD8 0x02 0x");
+        ui->txtConsole->append("Sending reply FC info...Not documented ???");
+        serialport->write(QByteArray::fromHex("D8 03 2D F7")); //
+        serialport->blockSignals(false);
+    }
+    // Not documented ???
+    if(receivedData[0] == 0xD9 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    {
+        ui->txtConsole->append("0xD9 0x02 0x");
+        ui->txtConsole->append("Sending reply FC info...Not documented ???");
+        serialport->write(QByteArray::fromHex("D9 03 14 0F")); //
         serialport->blockSignals(false);
     }
 }
