@@ -1306,16 +1306,16 @@ void MainWindow::on_pushButton_clicked()
 {
 
 
- int loop = 0;
-         while (loop <= 9)
- {
 
-        loop++;
-        QThread::msleep(200);
-        //qDebug() << "Send Dicktator Message 10x"<<loop;
-        qDebug() << "Send Dicktator Message 10x"<<loop;
-        serialport->write(QByteArray::fromHex("53 54 41 52 54 75 a1 00 00 80 53 06 76 47 8b 00 a3 ff c5 fb 00 00 09 0f 94 a0 25 00 01 00 45 4e 44"));
+
+        serialport->write(QByteArray::fromHex("53 54 41 52 54 00 ff 02 01 80 53 06 76 47 8b 00 a3 ff c5 fb 00 00 09 0f 94 a0 25 00 01 00 45 4e 44"));
+
 }
-}
+// 00 FF 00 = 460  00 FF 01 = 229 01ff00 =
 
-
+//726 75 a1 00
+//
+//721 75 a2 00
+//717 75 a3 00
+//713 75 a4 00
+//708 75 a5 00
