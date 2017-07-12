@@ -9,27 +9,25 @@
 #include "ui_mainwindow.h"
 #include <QDebug>
 #include <QtGlobal>
+#include <QTimer>
+#include <QThread>
+#include <QtSerialPort/QSerialPortInfo>
+
+
+
+
 
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
-{
-    serialport = new QSerialPort(this);
-    serialport->setBaudRate(QSerialPort::Baud57600);
-    //serialport->setPortName("tnt1"); //used for linux with tty0tty
-    serialport->setPortName("COM10");
-    serialport->setParity(serialport->NoParity);
 
-    serialport->setDataBits(QSerialPort::Data8);
-    serialport->setStopBits(QSerialPort::OneStop);
-    serialport->setFlowControl(QSerialPort::NoFlowControl);
-    serialport->open(QIODevice::ReadWrite);
-    qDebug() << "Serialport initialized";
-    connect(this->serialport,SIGNAL(readyRead()),this,SLOT(dataAvailable()));
+{
+
+
 
     ui->setupUi(this);
-
+    fillPortsParameters();
 
 
 
@@ -39,6 +37,19 @@ MainWindow::~MainWindow()
 {
     delete ui;
 }
+
+void MainWindow::fillPortsParameters()
+{
+
+foreach(const QSerialPortInfo &info, QSerialPortInfo::availablePorts())
+    {
+    ui->comboBox->addItem(info.portName());
+    }
+
+}
+
+
+
 
 void MainWindow::dataAvailable()
 {
@@ -72,34 +83,48 @@ void MainWindow::dataAvailable()
     QByteArray Ignvswater;
     QByteArray IgnvsAirwarm;
 
-    int t = 0;
     receivedData = serialport->readAll();
-    serialport->blockSignals(true);
+    quint8 requesttype = receivedData[0];
+    quint8 readwrite = receivedData[01];
+    //serialport->blockSignals(true);
+    qDebug() <<  "Serial signal raised" << requesttype << readwrite;
+
+
+
+
+    //serialport->blockSignals(true);
     qDebug() <<  "Serial signal raised";
+    // Process to calculate checksum
+    int checksum = 255; //calculated checksum from serial message 0xFF - each byte in message (except the last byte)
+    QByteArray checksumhex;
+    QByteArray recvchecksumhex = QByteArray::number(receivedData[readwrite], 16).right(2); // reading the checksum byte , convert to Hex , and cut to 2 positions
+    recvchecksumhex = recvchecksumhex.rightJustified(2, '0'); // If the checksumbyte is less than 2 positions , prepend a 0 for example if value is 0x9 turn it into 0x09
+    //test1 = test.rightJustified(2, '0');
 
-
-
-
-    serialport->blockSignals(true);
-    qDebug() <<  "Serial signal raised";
-
-
-// Process to calculate checksum
-    int8_t checksum = 0xFFFFFFFFFFFFFFFF;                       //calculated checksum from serial message 0xFF - each byte in message (except the last byte)
-    int8_t checksumposition = receivedData[1];                  //determines in which position of the message the checksumbyte is located
+    for (int i = 0; i <= readwrite-1; i++)
+    {
+        checksum = checksum - receivedData[i];
+        checksumhex = QByteArray::number(checksum, 16).right(2);
+        checksumhex = checksumhex.rightJustified(2, '0');
+    }
+    // Process to calculate checksum
+    /*
+     int8_t checksum = 0xFFFFFFFFFFFFFFFF;                       //calculated checksum from serial message 0xFF - each byte in message (except the last byte)
+    int8_t checksumposition = readwrite;                  //determines in which position of the message the checksumbyte is located
     int8_t receivedchecksum = receivedData[checksumposition];   //checksum from serial message
     //int8_t integrity = checksum - receivedchecksum;
-    for (int i = 0; i <= receivedData[1]-1; i++)
+    for (int i = 0; i <= readwrite-1; i++)
     {
     checksum = checksum - receivedData[i];
     }
-//    ui->txtConsole->append(+ "Calculated checksum " + QString::number(checksum,16).toUpper());
-//    ui->txtConsole->append(+ "received checksum " + QString::number(receivedchecksum,16).toUpper());
+*/
+    //    ui->txtConsole->append(+ "Calculated checksum " + QString::number(checksum,16).toUpper());
+    //    ui->txtConsole->append(+ "received checksum " + QString::number(receivedchecksum,16).toUpper());
 
-// Read only Data
+    // Read only Data
 
     //First request from FC Edit ?
-    if(receivedData[0] == 0x01 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x01 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x01 0x02 0xFC");
         ui->txtConsole->append("Sending reply FC info...First request from FC Edit ?");
@@ -107,7 +132,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //FC Commander Display
-    if(receivedData[0] == 0xDA && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xDA) //&& readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xDA 0x02 0x23");
         ui->txtConsole->append("Sending reply FC info...FC Commander Display");
@@ -115,7 +140,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Sensor Strings
-    if(receivedData[0] == 0xDD && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xDD && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xDD 0x02 0x20");
         ui->txtConsole->append("Sending reply FC info...Sensor Strings");
@@ -123,7 +148,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // PIM Strings and Injector Adjustment
-    if(receivedData[0] == 0xCB && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xCB && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xCB 0x02 0x32");
         ui->txtConsole->append("Sending reply FC info...PIM Strings and Injector Adjustment");
@@ -131,7 +156,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xCB && receivedData[01] > 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xCB && readwrite > 0x02 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write PM Strings and Inhector Adjustment to PowerFC");
@@ -140,23 +165,25 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Version number
-    if(receivedData[0] == 0xF5 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xF5 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xF5 0x02 0x08");
         ui->txtConsole->append("Sending reply FC info...Version number");
         serialport->write(QByteArray::fromHex("f5 07 34 2e 31 31 20 1f")); // Power FC Version number 5.08
+        //serialport->write(QByteArray::fromHex("F507342E31302020"));
+
         serialport->blockSignals(false);
     }
     // Map Reference
-    if(receivedData[0] == 0x8A && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x8A && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x8A 0x02 0x73");
         ui->txtConsole->append("Sending reply FC info...Map Reference");
-        serialport->write(QByteArray::fromHex("8a 52 f8 0a e0 0e c8 12 b0 16 98 1a 80 1e 68 22 50 26 38 2a 20 2e 08 32 c5 33 d9 38 4c 3e b5 43 0a 49 73 4e 91 53 9b 58 6a 5c 90 01 20 03 b0 04 40 06 d0 07 60 09 f0 0a 80 0c 10 0e a0 0f 30 11 c0 12 50 14 e0 15 70 17 00 19 90 1a 20 1c b0 1d 40 1f be")); //
+        serialport->write(QByteArray::fromHex("8a 52 f8 0a e0 0e c8 12 b0 16 98 1a 80 1e 68 22 50 26 38 2a 20 2e 08 32 c5 33 d9 38 4c 3e b5 43 0a 49 73 4e 91 53 9b 58 6a 5c 90 01 20 03 b0 04 40 06 d0 07 60 09 f0 0a 80 0c 10 0e a0 0f 30 11 c0 12 50 14 e0 15 70 17 00 19 90 1a 20 1c b0 1d 40 1f be ")); //
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x8A && receivedData[01] ==0x52 && receivedchecksum == checksum)
+    if(requesttype == 0x8A && readwrite ==0x52 && recvchecksumhex == checksumhex)
     {
         QByteArray MapRef = receivedData;
         ui->txtConsole->append("Write Map Reference to PowerFC");
@@ -164,18 +191,18 @@ void MainWindow::dataAvailable()
         serialport->write(QByteArray::fromHex("F2 02 0B"));
         serialport->blockSignals(false);
     }
-    //Advanced data 
-    if(receivedData[0] == 0xF0 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    //Advanced data
+    if(requesttype == 0xF0 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xF0 0x02 0x0D");
         ui->txtConsole->append("Sending reply FC info...Adv");
-        serialport->write(QByteArray::fromHex("F0 20 00 00 1d 28 36 09 1d 02 00 00 00 00 00 00 ff 36 02 01 5d 5c 00 73 00 00 00 00 00 4C 00 00 9C"));
-      //  serialport->write(QByteArray::fromHex("f0 28 00 00 6d 28 45 09 27 02 00 00 00 00 00 00 ff 36 02 01 5d 5c 00 7c 00 00 00 00 00 4c 00 00 00 00 00 00 00 00 00 00 22"));
+        serialport->write(QByteArray::fromHex("F0 20 88 13 1d 28 36 09 1d 02 00 00 00 00 00 00 ff 36 02 01 5d 5c 00 73 DC 00 00 00 00 4C 00 00 25")); //changed speed to 220 and rev to 5500
+        //  serialport->write(QByteArray::fromHex("f0 28 00 00 6d 28 45 09 27 02 00 00 00 00 00 00 ff 36 02 01 5d 5c 00 7c 00 00 00 00 00 4c 00 00 00 00 00 00 00 00 00 00 22"));
         serialport->blockSignals(false);
 
     }
-    //Sensor data 
-    if(receivedData[0] == 0xDE && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    //Sensor data
+    if(requesttype == 0xDE && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xDE 0x02 0x1F");
         ui->txtConsole->append("Sending reply FC info...Sensor Info");
@@ -183,7 +210,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //Map Indicies
-    if(receivedData[0] == 0xDB && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xDB && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xDB 0x02 0x22");
         ui->txtConsole->append("Sending reply FC info...Map Indicies");
@@ -191,7 +218,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //Aux data (AN1-AN4) /lenght byte and checksum to be verified
-    if(receivedData[0] == 0x00 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x00 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x00 0x02 0xFD");
         ui->txtConsole->append("Sending reply FC info...Aux info");
@@ -202,7 +229,7 @@ void MainWindow::dataAvailable()
     //Read and write packets
 
     //This packet is sent by the Apexi Pro Software
-    if(receivedData[0] == 0xF8 && receivedData[01] == 0x06 && receivedchecksum == checksum)
+    if(requesttype == 0xF8 && readwrite == 0x06 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xf8 0x06 0x06 0x07 0x03 0x03 0xee");
         ui->txtConsole->append("Sending reply FC info...Unknown Apexi FC Pro command");
@@ -211,7 +238,7 @@ void MainWindow::dataAvailable()
     }
 
     // Leading Ignition Packet 1
-    if(receivedData[0] == 0x76 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x76 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x76 0x02 0x87");
         ui->txtConsole->append("Sending reply FC info...Leading Ignition Packet1");
@@ -220,7 +247,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x76 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0x76 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray Lignition1 = serialport->readAll();
         ui->txtConsole->append("Write Leading Ignition Packet 1 to PowerFC");
@@ -229,7 +256,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Leading Ignition Packet 2
-    if(receivedData[0] == 0x77 && receivedData[1] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x77 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x77 0x02 0x86");
         ui->txtConsole->append("Sending reply FC info...Leading Ignition Packet2");
@@ -237,7 +264,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x77 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0x77 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray Lignition2 = receivedData;
         ui->txtConsole->append("Write Leading Ignition Packet 2 to PowerFC");
@@ -246,7 +273,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Leading Ignition Packet 3
-    if(receivedData[0] == 0x78 && receivedData[1] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x78 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x78 0x02 0x85");
         ui->txtConsole->append("Sending reply FC info...Leading Ignition Packet3");
@@ -254,7 +281,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x78 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0x78 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray Lignition3 = receivedData;
         ui->txtConsole->append("Write Leading Ignition Packet 3 to PowerFC");
@@ -263,15 +290,16 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Leading Ignition Packet 4
-    if(receivedData[0] == 0x79 && receivedData[1] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x79 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x79 0x02 0x84" );
         ui->txtConsole->append("Sending reply FC info...Leading Ignition Packet4");
         serialport->write(QByteArray::fromHex("79 66 47 47 47 46 46 43 41 3f 3d 3b 37 33 30 2e 2a 26 21 1f 1d 1b 47 47 47 47 46 45 41 40 3e 3d 37 33 31 2e 2b 28 24 22 20 1e 48 48 48 47 47 46 43 42 41 3f 37 34 31 2f 2d 2b 29 27 25 23 48 48 48 48 48 48 47 44 41 3f 39 36 32 2f 2e 2c 2b 29 27 25 49 49 49 49 48 48 47 44 41 3f 39 36 32 30 2f 2f 2d 2b 29 27 2a"));
+     //   serialport->write(QByteArray::fromHex("79 66 47 47 47 46 46 43 41 3f 3d 3b 37 33 30 2e 2a 26 21 1f 1d 1b 47 47 47 47 46 45 41 40 3e 3d 37 33 31 2e 2b 28 24 22 20 1e 48 48 48 47 47 46 43 42 41 3f 37 34 31 2f 2d 2b 29 27 25 23 48 48 48 48 48 48 47 44 41 3f 39 36 32 2f 2e 2c 2b 29 27 25 49 49 49 49 48 48 47 44 41 3f 39 36 32 30 2f 2f 2d 2b "));
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x79 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0x79 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray Lignition4 = receivedData;
         ui->txtConsole->append("Write Leading Ignition Packet 4 to PowerFC");
@@ -281,7 +309,7 @@ void MainWindow::dataAvailable()
     }
 
     // Trailing Ignition Packet 1
-    if(receivedData[0] == 0x81 && receivedData[1] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x81 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x81 0x02 0x7C");
         ui->txtConsole->append("Sending reply FC info...Trailing Ignition Packet1");
@@ -289,7 +317,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x81 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0x81 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray Tignition1 = receivedData;
         ui->txtConsole->append("Write Trailing Ignition Packet 1 to PowerFC");
@@ -298,7 +326,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Trailing Ignition Packet 2
-    if(receivedData[0] == 0x82 && receivedData[1] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x82 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x82 0x02 0x7B");
         ui->txtConsole->append("Sending reply FC info...Trailing Ignition Packet 2");
@@ -306,7 +334,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x82 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0x82 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray Tignition2 = receivedData;
         ui->txtConsole->append("Write Trailing Ignition Packet 2 to PowerFC");
@@ -315,7 +343,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Trailing Ignition Packet 3
-    if(receivedData[0] == 0x83 && receivedData[1] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x83 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x83 0x02 0x7A");
         ui->txtConsole->append("Sending reply FC info...Trailing Ignition Packet 3");
@@ -323,7 +351,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x83 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0x83 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray Tignition3 = receivedData;
         ui->txtConsole->append("Write Trailing Ignition Packet 3 to PowerFC");
@@ -332,7 +360,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Trailing Ignition Packet 4
-    if(receivedData[0] == 0x84 && receivedData[1] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x84 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x84 0x02 0x79");
         ui->txtConsole->append("Sending reply FC info...Trailing Ignition Packet 4");
@@ -340,7 +368,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x84 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0x84 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray Tignition4 = receivedData;
         ui->txtConsole->append("Write Trailing Ignition Packet 4 to PowerFC");
@@ -350,26 +378,37 @@ void MainWindow::dataAvailable()
     }
     // Init Platform
 
-    if(receivedData[0] == 0xF3 && receivedData[1] <= 0x02)
+    if(requesttype == 0xF3 && readwrite <= 0x02)
+
     {
 
- //       if(t==0){
- //           t=1;
- //           ui->txtConsole->append("0xF3 0x02 0x0A");
- //           ui->txtConsole->append("Sending reply FC info...init platform malformed packet");
- //           serialport->write(QByteArray::fromHex("F056324B")); // This malformed packet is always sent as first response
- //           serialport->blockSignals(false);
- //       }
- //      else{
-            ui->txtConsole->append("0xF3 0x02 0x0A");
-           ui->txtConsole->append("Sending reply FC info...init platform string");
-            serialport->write(QByteArray::fromHex("f3 0a 31 33 42 2d 52 45 57 20 21")); // If 0xF3 0x02 0x0A is requested for a second time the platform string is sent "13B-REW "
-           serialport->blockSignals(false);
-        }
- //   }
+        ui->txtConsole->append("0xF3 0x02 0x0A");
+        ui->txtConsole->append("Sending reply FC info...init platform string");
+        //Simulate a delay in message reception
+        //serialport->write(QByteArray::fromHex("F30a324A5A2D47544531EE")); //2JZE-GTE
+        serialport->write(QByteArray::fromHex("f3 0a 31 33 42 2d 52 45 57 20 21"));  //13B-REW
+/*
+        serialport->write(QByteArray::fromHex("f3 0a"));
+       //
+        ::msleep(1000);
+        serialport->write(QByteArray::fromHex("31 33"));
+       // QThread::msleep(5000);
+        serialport->write(QByteArray::fromHex("42 2d"));
+      //  QThread::msleep(20);
+        serialport->write(QByteArray::fromHex("52"));
+      //  QThread::msleep(10);
+        serialport->write(QByteArray::fromHex("45 57"));
+      //  QThread::msleep(100);
+        serialport->write(QByteArray::fromHex("20 21"));
+*/
+
+
+        serialport->blockSignals(false);
+    }
+
 
     // Injector Overlap
-    if(receivedData[0] == 0x7B && receivedData[1] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x7B && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x7B 0x02 0x82");
         ui->txtConsole->append("Sending reply FC info...Injector Overlap");
@@ -377,7 +416,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x7B && receivedData[01] ==0x08 && receivedchecksum == checksum)
+    if(requesttype == 0x7B && readwrite ==0x08 && recvchecksumhex == checksumhex)
     {
         QByteArray Injoverlap = receivedData;
         ui->txtConsole->append("Write Injector Overlap to PowerFC");
@@ -386,7 +425,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Injector vs Fuel Temp
-    if(receivedData[0] == 0x7C && receivedData[1] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x7C && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x7C 0x02 0x80");
         ui->txtConsole->append("Sending reply FC info...Injector vs Fuel Temp");
@@ -394,7 +433,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x7C && receivedData[01] ==0x0B && receivedchecksum == checksum)
+    if(requesttype == 0x7C && readwrite ==0x0B && recvchecksumhex == checksumhex)
     {
         QByteArray InjvFuel = receivedData;
         ui->txtConsole->append("Write Injector vs Fuel Temp to PowerFC");
@@ -405,7 +444,7 @@ void MainWindow::dataAvailable()
 
 
     // Turbo Transition
-    if(receivedData[0] == 0x7D && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x7D && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x7D 0x02");
         ui->txtConsole->append("Sending reply FC info...Turbo Transition");
@@ -413,7 +452,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x7D && receivedData[01] ==0x0B && receivedchecksum == checksum)
+    if(requesttype == 0x7D && readwrite ==0x0B && recvchecksumhex == checksumhex)
     {
         QByteArray Turbotrans = receivedData;
         ui->txtConsole->append("Write Turbo Transition to PowerFC");
@@ -422,7 +461,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Oiler vs Water Temperature
-    if(receivedData[0] == 0x7E && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x7E && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x7E 0x02 0x7F");
         ui->txtConsole->append("Sending reply FC info...Oiler vs Water Temperature");
@@ -430,7 +469,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x7E && receivedData[01] ==0x08 && receivedchecksum == checksum)
+    if(requesttype == 0x7E && readwrite ==0x08 && recvchecksumhex == checksumhex)
     {
         QByteArray Oilervswater = receivedData;
         ui->txtConsole->append("Write Oiler vs Water Temperature to PowerFC");
@@ -439,7 +478,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Fan vs Water Temperature
-    if(receivedData[0] == 0x7F && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x7F && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x7F 0x02 0x7E");
         ui->txtConsole->append("Sending reply FC info...Fan vs Water Temperature");
@@ -447,7 +486,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x7F && receivedData[01] ==0x05 && receivedchecksum == checksum)
+    if(requesttype == 0x7F && readwrite ==0x05 && recvchecksumhex == checksumhex)
     {
         QByteArray Fanvswater = receivedData;
         ui->txtConsole->append("Write Fan vs Water Temperature to PowerFC");
@@ -458,7 +497,7 @@ void MainWindow::dataAvailable()
 
     // Injector Correction Packet 1
     // read request
-    if(receivedData[0] == 0x86 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x86 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x86 0x02 0x77");
         ui->txtConsole->append("Sending reply FC info...Injector Correction Packet 1");
@@ -466,7 +505,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x86 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0x86 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Injector Correction Packet 1 to PowerFC");
@@ -475,7 +514,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Injector Correction Packet 2
-    if(receivedData[0] == 0x87 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x87 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x87 0x02 0x76 ");
         ui->txtConsole->append("Sending reply FC info...Injector Correction Packet 2");
@@ -483,7 +522,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x87 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0x87 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection2 = receivedData;
         ui->txtConsole->append("Write Injector Correction Packet 2 to PowerFC");
@@ -492,7 +531,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Injector Correction Packet 3
-    if(receivedData[0] == 0x88 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x88 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x88 0x02 0x75");
         ui->txtConsole->append("Sending reply FC info...Injector Correction Packet 3");
@@ -500,7 +539,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x88 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0x88 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection3 = receivedData;
         ui->txtConsole->append("Write Injector Correction Packet 3 to PowerFC");
@@ -509,7 +548,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Injector Correction Packet 4
-    if(receivedData[0] == 0x89 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x89 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x89 0x02 0x74");
         ui->txtConsole->append("Sending reply FC info...Injector Correction Packet 4");
@@ -517,7 +556,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x89 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0x89 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection4 = receivedData;
         ui->txtConsole->append("Write Injector Correction Packet 4 to PowerFC");
@@ -527,7 +566,7 @@ void MainWindow::dataAvailable()
     }
 
     // Fuel Injectors
-    if(receivedData[0] == 0x8D && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x8D && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x8D 0x02 0x70 ");
         ui->txtConsole->append("Sending reply FC info...Fuel Injectors");
@@ -535,7 +574,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x8D && receivedData[01] ==0x1A && receivedchecksum == checksum)
+    if(requesttype == 0x8D && readwrite ==0x1A && recvchecksumhex == checksumhex)
     {
         QByteArray Fuelinj = receivedData;
         ui->txtConsole->append("Write Fuel Injectors to PowerFC");
@@ -544,7 +583,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Cranking
-    if(receivedData[0] == 0x8E && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x8E && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x8E 0x02 0x6F");
         ui->txtConsole->append("Sending reply FC info...Cranking");
@@ -552,7 +591,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x8E && receivedData[01] ==0x0E && receivedchecksum == checksum)
+    if(requesttype == 0x8E && readwrite ==0x0E && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Cranking to PowerFC");
@@ -561,7 +600,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Water Temp Correction
-    if(receivedData[0] == 0x8F && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x8F && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x8F 0x02 0x6E");
         ui->txtConsole->append("Sending reply FC info...Water Temp Correction");
@@ -569,7 +608,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x8F && receivedData[01] ==0x10 && receivedchecksum == checksum)
+    if(requesttype == 0x8F && readwrite ==0x10 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Cranking to PowerFC");
@@ -578,7 +617,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Injector vs Water Temperature and Boost
-    if(receivedData[0] == 0x90 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x90 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x90 0x02 0x6D");
         ui->txtConsole->append("Sending reply FC info...Injector vs Water Temperature and Boost");
@@ -586,7 +625,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x90 && receivedData[01] ==0x08 && receivedchecksum == checksum)
+    if(requesttype == 0x90 && readwrite ==0x08 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Injector vs Water Temoerature to PowerFC");
@@ -595,7 +634,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Injector vs Air Temperature and Boost
-    if(receivedData[0] == 0x91 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x91 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x91 0x02 0x6C");
         ui->txtConsole->append("Sending reply FC info...Injector vs Air Temperature and Boost");
@@ -603,7 +642,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x91 && receivedData[01] ==0x0A && receivedchecksum == checksum)
+    if(requesttype == 0x91 && readwrite ==0x0A && recvchecksumhex == checksumhex)
     {
         QByteArray airtempboost = receivedData;
         ui->txtConsole->append("Write Injector vs Air Temperature to PowerFC");
@@ -612,7 +651,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Inj Primary Lag (uS) vs Battery Voltage
-    if(receivedData[0] == 0x92 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x92 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x92 0x02 0x6B ");
         ui->txtConsole->append("Sending reply FC info...Inj Primary Lag (uS) vs Battery Voltage");
@@ -620,7 +659,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x92 && receivedData[01] ==0x0E && receivedchecksum == checksum)
+    if(requesttype == 0x92 && readwrite ==0x0E && recvchecksumhex == checksumhex)
     {
         QByteArray primlagbatt = receivedData;
         ui->txtConsole->append("Write Injector Primary Lag  (uS) vs Battery voltage to PowerFC");
@@ -629,7 +668,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Accelerate Inject (mS)
-    if(receivedData[0] == 0x93 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x93 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x93 0x02 0x6A ");
         ui->txtConsole->append("Sending reply FC info...Accelerate Inject (mS)");
@@ -637,7 +676,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x93 && receivedData[01] ==0x1B && receivedchecksum == checksum)
+    if(requesttype == 0x93 && readwrite ==0x1B && recvchecksumhex == checksumhex)
     {
         QByteArray AccelInj = receivedData;
         ui->txtConsole->append("Write Accelerate Inject (mS) to PowerFC");
@@ -646,7 +685,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Injector vs Accel TPS
-    if(receivedData[0] == 0x94 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x94 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x94 0x02 0x69");
         ui->txtConsole->append("Sending reply FC info...Injector vs Accel TPS");
@@ -654,7 +693,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x94 && receivedData[01] ==0x0B && receivedchecksum == checksum)
+    if(requesttype == 0x94 && readwrite ==0x0B && recvchecksumhex == checksumhex)
     {
         QByteArray Injvsaccel = receivedData;
         ui->txtConsole->append("Write Injector vs Accel to PowerFC");
@@ -663,7 +702,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Ignition vs Air Temperature (cold)
-    if(receivedData[0] == 0x96 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x96 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x96 0x02 0x67");
         ui->txtConsole->append("Sending reply FC info...Ignition vs Air Temperature (cold)");
@@ -671,7 +710,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x96 && receivedData[01] ==0x06 && receivedchecksum == checksum)
+    if(requesttype == 0x96 && readwrite ==0x06 && recvchecksumhex == checksumhex)
     {
         QByteArray Ignvsaircold = receivedData;
         ui->txtConsole->append("Write Ignition vs Air Temperature (cold) to PowerFC");
@@ -681,7 +720,7 @@ void MainWindow::dataAvailable()
     }
 
     // not shure what this is
-    if(receivedData[0] == 0x97 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x97 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x9 0x02 ");
         ui->txtConsole->append("Sending reply FC info...not shure what this is ");
@@ -689,7 +728,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x97 && receivedData[01] ==0x04 && receivedchecksum == checksum)
+    if(requesttype == 0x97 && readwrite ==0x04 && recvchecksumhex == checksumhex)
     {
         QByteArray notshure = receivedData;
         ui->txtConsole->append("Write not shure what this is to PowerFC");
@@ -698,7 +737,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Ignition vs Water Temperature
-    if(receivedData[0] == 0x98 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x98 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x98 0x02 0x65");
         ui->txtConsole->append("Sending reply FC info...Ignition vs Water Temperature");
@@ -706,7 +745,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x98 && receivedData[01] ==0x06 && receivedchecksum == checksum)
+    if(requesttype == 0x98 && readwrite ==0x06 && recvchecksumhex == checksumhex)
     {
         QByteArray Ignvswater = receivedData;
         ui->txtConsole->append("Write Ignition vs Water Temperature to PowerFC");
@@ -715,7 +754,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Ignition vs Air Temperature (warm)
-    if(receivedData[0] == 0x9A && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x9A && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x9A 0x02 0x63");
         ui->txtConsole->append("Sending reply FC info...Ignition vs Air Temperature (warm)");
@@ -723,7 +762,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x9A && receivedData[01] ==0x08 && receivedchecksum == checksum)
+    if(requesttype == 0x9A && readwrite ==0x08 && recvchecksumhex == checksumhex)
     {
         QByteArray IgnvsAirwarm = receivedData;
         ui->txtConsole->append("Write Ignition vs Air Temperature (warm) to PowerFC");
@@ -732,7 +771,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Leading Ignition vs RPM
-    if(receivedData[0] == 0x9B && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x9B && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x9B 0x02 0x62");
         ui->txtConsole->append("Sending reply FC info...Leading Ignition vs RPM");
@@ -740,7 +779,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x9B && receivedData[01] ==0x08 && receivedchecksum == checksum)
+    if(requesttype == 0x9B && readwrite ==0x08 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Leading Ignition vs RPM to PowerFC");
@@ -749,7 +788,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // IGN vs Battery Voltage
-    if(receivedData[0] == 0x9C && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x9C && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x9C 0x02 0x61");
         ui->txtConsole->append("Sending reply FC info...IGN vs Battery Voltage");
@@ -757,7 +796,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x9C && receivedData[01] ==0x08 && receivedchecksum == checksum)
+    if(requesttype == 0x9C && readwrite ==0x08 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write IGN vs Battery Voltage to PowerFC");
@@ -766,7 +805,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Boost vs Ignition S.F.
-    if(receivedData[0] == 0x9D && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x9D && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x9D 0x02 0x60");
         ui->txtConsole->append("Sending reply FC info...Boost vs Ignition S.F.");
@@ -774,7 +813,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x9D && receivedData[01] ==0x06 && receivedchecksum == checksum)
+    if(requesttype == 0x9D && readwrite ==0x06 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Boost vs Ignition S.F to PowerFC");
@@ -783,7 +822,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Trailing Ignition vs RPM
-    if(receivedData[0] == 0x9E && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x9E && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x9E 0x02 0x5F");
         ui->txtConsole->append("Sending reply FC info...Trailing Ignition vs RPM");
@@ -791,7 +830,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x9E && receivedData[01] ==0x08 && receivedchecksum == checksum)
+    if(requesttype == 0x9E && readwrite ==0x08 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Trailing Ignition vs RPM to PowerFC");
@@ -800,7 +839,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Injector Secondary Lag (uS) vs Battery Voltage
-    if(receivedData[0] == 0x9F && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0x9F && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0x9F 0x02 0x5E");
         ui->txtConsole->append("Sending reply FC info...Injector Secondary Lag (uS) vs Battery Voltage");
@@ -808,7 +847,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0x9F && receivedData[01] ==0x0E && receivedchecksum == checksum)
+    if(requesttype == 0x9F && readwrite ==0x0E && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Secondary Lag (uS) to PowerFC");
@@ -817,15 +856,16 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Injector Warning
-    if(receivedData[0] == 0xA8 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xA8 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xA8 0x02 0x55");
         ui->txtConsole->append("Sending reply FC info...Injector Warning");
-        serialport->write(QByteArray::fromHex("a8 06 00 d4 03 1e 5c a9 06 00 3c 00 09 0b")); //
+        serialport->write(QByteArray::fromHex("a8 06 00 d4 03 1e 5c")); //
+
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xA8 && receivedData[01] ==0x06 && receivedchecksum == checksum)
+    if(requesttype == 0xA8 && readwrite ==0x06 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Injector warning to PowerFC");
@@ -834,7 +874,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Knock Warning
-    if(receivedData[0] == 0xA9 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xA9 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xA9 0x02 ");
         ui->txtConsole->append("Sending reply FC info...Knock Warning");
@@ -842,7 +882,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xA9 && receivedData[01] ==0x06 && receivedchecksum == checksum)
+    if(requesttype == 0xA9 && readwrite ==0x06 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Knock warning to PowerFC");
@@ -851,7 +891,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // O2 Feedback
-    if(receivedData[0] == 0xAA && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xAA && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xAA 0x02 0x53");
         ui->txtConsole->append("Sending reply FC info...O2 Feedback");
@@ -859,7 +899,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xAA && receivedData[01] ==0x05 && receivedchecksum == checksum)
+    if(requesttype == 0xAA && readwrite ==0x05 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write 02 Feedback to PowerFC");
@@ -868,7 +908,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Boost control
-    if(receivedData[0] == 0xAB && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xAB && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xAB 0x02 0x52");
         ui->txtConsole->append("Sending reply FC info...Boost control");
@@ -876,7 +916,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xAB && receivedData[01] ==0x0D && receivedchecksum == checksum)
+    if(requesttype == 0xAB && readwrite ==0x0D && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Boost control to PowerFC");
@@ -885,7 +925,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Setting Protections?
-    if(receivedData[0] == 0xAC && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xAC && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xAC 0x02 0x51");
         ui->txtConsole->append("Sending reply FC info...Setting Protections?");
@@ -893,7 +933,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xAC && receivedData[01] ==0x0C && receivedchecksum == checksum)
+    if(requesttype == 0xAC && readwrite ==0x0C && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Setting Protections to PowerFC");
@@ -902,7 +942,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Tuner String?
-    if(receivedData[0] == 0xAD && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xAD && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xAD 0x02 0x50");
         ui->txtConsole->append("Sending reply FC info...Tuner String?");
@@ -910,7 +950,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xAD && receivedData[01] ==0x0A && receivedchecksum == checksum)
+    if(requesttype == 0xAD && readwrite ==0x0A && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Tuner String to PowerFC");
@@ -919,7 +959,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Base Fuel packet 1
-    if(receivedData[0] == 0xB0 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xB0 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xB0 0x02 0x4D ");
         ui->txtConsole->append("Sending reply FC info...Base Fuel packet 1");
@@ -927,7 +967,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xB0 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0xB0 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Base Fuel packet 1 to PowerFC");
@@ -936,7 +976,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Base Fuel packet 2
-    if(receivedData[0] == 0xB1 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xB1 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xB1 0x02 0x4C");
         ui->txtConsole->append("Sending reply FC info...Base Fuel packet 2");
@@ -944,7 +984,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xB1 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0xB1 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Base Fuel packet 2 to PowerFC");
@@ -953,7 +993,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Base Fuel packet 3
-    if(receivedData[0] == 0xB2 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xB2 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xB2 0x02 0x4B");
         ui->txtConsole->append("Sending reply FC info...Base Fuel packet 3");
@@ -961,7 +1001,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xB2 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0xB2 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Base Fuel packet 3 to PowerFC");
@@ -970,7 +1010,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Base Fuel packet 4
-    if(receivedData[0] == 0xB3 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xB3 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xB3 0x02 0x4A");
         ui->txtConsole->append("Sending reply FC info...Base Fuel packet 4");
@@ -978,7 +1018,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xB3 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0xB3 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Base Fuel packet 4 to PowerFC");
@@ -987,7 +1027,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Base Fuel packet 5
-    if(receivedData[0] == 0xB4 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xB4 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xB4 0x02 0x49");
         ui->txtConsole->append("Sending reply FC info...Base Fuel packet 5");
@@ -995,7 +1035,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xB4 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0xB4 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Base Fuel packet 5 to PowerFC");
@@ -1004,7 +1044,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //Base Fuel packet 6
-    if(receivedData[0] == 0xB5 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xB5 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xB5 0x02 0x48");
         ui->txtConsole->append("Sending reply FC info...Base Fuel packet 6");
@@ -1012,7 +1052,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xB5 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0xB5 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Base Fuel packet 6 to PowerFC");
@@ -1021,7 +1061,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //Base Fuel packet 7
-    if(receivedData[0] == 0xB6 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xB6 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xB6 0x02 0x47");
         ui->txtConsole->append("Sending reply FC info...Base Fuel packet 7");
@@ -1029,7 +1069,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xB6 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0xB6 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Base Fuel packet 7 to PowerFC");
@@ -1038,7 +1078,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Base Fuel packet 8
-    if(receivedData[0] == 0xB7 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xB7 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xB7 0x02 0x46");
         ui->txtConsole->append("Sending reply FC info...Base Fuel packet 8");
@@ -1046,7 +1086,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xB7 && receivedData[01] ==0x66 && receivedchecksum == checksum)
+    if(requesttype == 0xB7 && readwrite ==0x66 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Base Fuel packet 8 to PowerFC");
@@ -1055,7 +1095,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Rev Idle
-    if(receivedData[0] == 0xB8 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xB8 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xB8 0x02 0x45");
         ui->txtConsole->append("Sending reply FC info...Rev Idle");
@@ -1063,7 +1103,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xB8 && receivedData[01] ==0x10 && receivedchecksum == checksum)
+    if(requesttype == 0xB8 && readwrite ==0x10 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write REV idle to PowerFC");
@@ -1072,7 +1112,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Injector vs Air Temperature
-    if(receivedData[0] == 0xB9 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xB9 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xB9 0x02 0x44");
         ui->txtConsole->append("Sending reply FC info...Injector vs Air Temperature");
@@ -1080,7 +1120,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xB9 && receivedData[01] ==0x0E && receivedchecksum == checksum)
+    if(requesttype == 0xB9 && readwrite ==0x0E && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Injector vs Air Temperature to PowerFC");
@@ -1089,7 +1129,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Injector vs TPS
-    if(receivedData[0] == 0xBA && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xBA && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xBA 0x02 0x43");
         ui->txtConsole->append("Sending reply FC info...Injector vs TPS");
@@ -1097,7 +1137,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xBA && receivedData[01] ==0x0E && receivedchecksum == checksum)
+    if(requesttype == 0xBA && readwrite ==0x0E && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Injector vs TPS to PowerFC");
@@ -1106,7 +1146,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Ignition vs TPS
-    if(receivedData[0] == 0xBB && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xBB && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xBB 0x02 0x42");
         ui->txtConsole->append("Sending reply FC info...Ignition vs TPS");
@@ -1114,7 +1154,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xBB && receivedData[01] ==0x0A && receivedchecksum == checksum)
+    if(requesttype == 0xBB && readwrite ==0x0A && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Ignition vs TPS to PowerFC");
@@ -1123,7 +1163,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // PIM Scale and Offset
-    if(receivedData[0] == 0xBC && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xBC && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xBC 0x02 0x41");
         ui->txtConsole->append("Sending reply FC info...PIM Scale and Offset");
@@ -1131,7 +1171,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xBC && receivedData[01] == 0x16 && receivedchecksum == checksum)
+    if(requesttype == 0xBC && readwrite == 0x16 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write PIM Scale and Offset to PowerFC");
@@ -1140,7 +1180,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Warning and Control Strings and Flags
-    if(receivedData[0] == 0xD6 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xD6 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xD6 0x02 0x27");
         ui->txtConsole->append("Sending reply FC info...Warning and Control Strings and Flags");
@@ -1148,7 +1188,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xD6 && receivedData[01] == 0x07 && receivedchecksum == checksum)
+    if(requesttype == 0xD6 && readwrite == 0x07 && recvchecksumhex == checksumhex)
     {
         QByteArray injcorrection1 = receivedData;
         ui->txtConsole->append("Write Warning and Control Strings and Flags to PowerFC");
@@ -1157,7 +1197,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Not documented ???
-    if(receivedData[0] == 0xF4 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xF4 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xF4 0x02 0x09");
         ui->txtConsole->append("Sending reply FC info...Not documented ???");
@@ -1165,7 +1205,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     //write request
-    if(receivedData[0] == 0xF4 && receivedData[01] ==0x03 && receivedchecksum == checksum)
+    if(requesttype == 0xF4 && readwrite ==0x03 && recvchecksumhex == checksumhex)
     {
         QByteArray ndocumented = receivedData;
         ui->txtConsole->append("Write Not documented ??? to PowerFC");
@@ -1174,7 +1214,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Not documented ???
-    if(receivedData[0] == 0xBD && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xBD && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xBD 0x02 0x40");
         ui->txtConsole->append("Sending reply FC info...Not documented ???");
@@ -1182,7 +1222,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Not documented ???
-    if(receivedData[0] == 0xBE && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xBE && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xBE 0x02 0x3F");
         ui->txtConsole->append("Sending reply FC info...Not documented ???");
@@ -1190,7 +1230,7 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Not documented ???
-    if(receivedData[0] == 0xD8 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xD8 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xD8 0x02 0x");
         ui->txtConsole->append("Sending reply FC info...Not documented ???");
@@ -1198,11 +1238,84 @@ void MainWindow::dataAvailable()
         serialport->blockSignals(false);
     }
     // Not documented ???
-    if(receivedData[0] == 0xD9 && receivedData[01] <= 0x02 && receivedchecksum == checksum)
+    if(requesttype == 0xD9 && readwrite <= 0x02 && recvchecksumhex == checksumhex)
     {
         ui->txtConsole->append("0xD9 0x02 0x");
         ui->txtConsole->append("Sending reply FC info...Not documented ???");
         serialport->write(QByteArray::fromHex("D9 03 14 0F")); //
         serialport->blockSignals(false);
     }
+    else
+    {
+      ui->txtConsole->append(receivedData.toHex());
+    }
 }
+
+
+
+
+
+
+void MainWindow::on_btnDisconnect_clicked()
+{
+    this->ui->btnconnect->setDisabled(false);
+    serialport->close();
+    ui->txtConsole->append("closed Serialport");
+    qDebug() << "Connection closed.";
+}
+
+
+
+void MainWindow::on_btnconnect_clicked()
+{
+    this->ui->btnconnect->setDisabled(true);
+
+    serialport = new QSerialPort(this);
+    serialport->setPortName(ui->comboBox->currentText());
+    serialport->setBaudRate(QSerialPort::Baud19200);
+    serialport->setDataBits(QSerialPort::Data8);
+    serialport->setStopBits(QSerialPort::OneStop);
+    serialport->setParity(serialport->NoParity);
+    serialport->setFlowControl(QSerialPort::NoFlowControl);
+    serialport->open(QIODevice::ReadWrite);
+    qDebug() << "Serialport initialized"<< ui->comboBox->currentText();
+    connect(this->serialport,SIGNAL(readyRead()),this,SLOT(dataAvailable()));
+    ui->txtConsole->append("Serialport status  "+serialport->errorString() );
+
+}
+/*
+void MainWindow::writeRequestPFC(QByteArray p_reply)
+{
+    qDebug() << "write request" << p_reply.toHex();
+    m_replyData = p_reply;
+    qint64 bytesWritten = m_serialport->write(p_reply);
+
+    //Action to be implemented
+    if (bytesWritten == -1) {
+        //m_dashBoard->setSerialStat(m_serialport->errorString());
+        qDebug() << "Write request to port failed" << (m_serialport->errorString());
+    } else if (bytesWritten != m_writeData.size()) {
+       // m_dashBoard->setSerialStat(m_serialport->errorString());
+        qDebug() << "could not write complete request to port" << (m_serialport->errorString());
+    }
+}
+*/
+
+
+void MainWindow::on_pushButton_clicked()
+{
+
+
+ int loop = 0;
+         while (loop <= 9)
+ {
+
+        loop++;
+        QThread::msleep(200);
+        //qDebug() << "Send Dicktator Message 10x"<<loop;
+        qDebug() << "Send Dicktator Message 10x"<<loop;
+        serialport->write(QByteArray::fromHex("53 54 41 52 54 75 a1 00 00 80 53 06 76 47 8b 00 a3 ff c5 fb 00 00 09 0f 94 a0 25 00 01 00 45 4e 44"));
+}
+}
+
+
