@@ -13,7 +13,8 @@
 #include <QThread>
 #include <QtSerialPort/QSerialPortInfo>
 
-
+QByteArray Advanced = (QByteArray::fromHex("F0 20 88 13 1d 28 36 09 1d 02 00 00 00 00 00 00 ff 36 02 01 5d 5c 00 73 DC 00 00 00 00 4C 00 00 25"));
+QByteArray Basic = (QByteArray::fromHex("da 16 00 00 00 00 00 00 00 00 00 00 f6 02 00 00 5c 00 5b 00 7d 00 e3"));
 
 
 
@@ -136,7 +137,8 @@ void MainWindow::dataAvailable()
     {
         ui->txtConsole->append("0xDA 0x02 0x23");
         ui->txtConsole->append("Sending reply FC info...FC Commander Display");
-        serialport->write(QByteArray::fromHex("da 16 00 00 00 00 00 00 00 00 00 00 f6 02 00 00 5c 00 5b 00 7d 00 e3")); //
+        serialport->write(Basic);
+        //serialport->write(QByteArray::fromHex("da 16 00 00 00 00 00 00 00 00 00 00 f6 02 00 00 5c 00 5b 00 7d 00 e3")); //
         serialport->blockSignals(false);
     }
     // Sensor Strings
@@ -169,7 +171,8 @@ void MainWindow::dataAvailable()
     {
         ui->txtConsole->append("0xF5 0x02 0x08");
         ui->txtConsole->append("Sending reply FC info...Version number");
-        serialport->write(QByteArray::fromHex("f5 07 34 2e 31 31 20 1f")); // Power FC Version number 5.08
+        serialport->write(QByteArray::fromHex(" f5 07 34 2e 31 31 20 1f")); // Power FC Version number 5.08
+        //serialport->write(QByteArray::fromHex("f6 07 34 2e 31 31 20 1f")); // Power FC Version number 5.08
         //serialport->write(QByteArray::fromHex("F507342E31302020"));
 
         serialport->blockSignals(false);
@@ -196,7 +199,8 @@ void MainWindow::dataAvailable()
     {
         ui->txtConsole->append("0xF0 0x02 0x0D");
         ui->txtConsole->append("Sending reply FC info...Adv");
-        serialport->write(QByteArray::fromHex("F0 20 88 13 1d 28 36 09 1d 02 00 00 00 00 00 00 ff 36 02 01 5d 5c 00 73 DC 00 00 00 00 4C 00 00 25")); //changed speed to 220 and rev to 5500
+       serialport->write(Advanced);
+        //serialport->write(QByteArray::fromHex("F0 20 88 13 1d 28 36 09 1d 02 00 00 00 00 00 00 ff 36 02 01 5d 5c 00 73 DC 00 00 00 00 4C 00 00 25")); //changed speed to 220 and rev to 5500
         //  serialport->write(QByteArray::fromHex("f0 28 00 00 6d 28 45 09 27 02 00 00 00 00 00 00 ff 36 02 01 5d 5c 00 7c 00 00 00 00 00 4c 00 00 00 00 00 00 00 00 00 00 22"));
         serialport->blockSignals(false);
 
@@ -1244,6 +1248,12 @@ void MainWindow::dataAvailable()
         ui->txtConsole->append("Sending reply FC info...Not documented ???");
         serialport->write(QByteArray::fromHex("D9 03 14 0F")); //
         serialport->blockSignals(false);
+
+    }
+    if (requesttype == 05) // Dicktator read maps and settings from ECU
+    {
+        ui->txtConsole->append("reply to request 05 f8 01 60 ea48");
+        serialport->write(QByteArray::fromHex("53 54 41 4c 4c 84 03 b5 04 14 05 78 05 0e 06 3a 07 f6 09 ac 0d 42 0e 9a 10 88 13 76 16 64 19 58 1b 4c 1d 45 1f 34 21 8e 03 b5 04 14 05 78 05 0e 06 3a 07 f6 09 ac 0d 42 0e 9a 10 88 13 76 16 64 19 58 1b 4c 1d 45 1f 34 21 84 03 0b 04 e2 04 78 05 0e 06 3a 07 f6 09 ac 0d 42 0e 9a 10 88 13 76 16 64 19 58 1b 4c 1d 45 1f 34 21 84 03 0b 04 e2 04 78 05 0e 06 3a 07 f6 09 ac 0d 42 0e 9a 10 88 13 76 16 64 19 58 1b 4c 1d 45 1f 34 21 e8 03 51 04 78 05 78 05 0e 06 3a 07 f0 0a ac 0d a0 0f 94 11 88 13 7c 15 64 19 58 1b 4c 1d 45 1f 34 21 e8 03 51 04 78 05 a0 05 0e 06 3a 07 f0 0a ac 0d a0 0f 94 11 88 13 7c 15 64 19 58 1b 4c 1d 45 1f 34 21 e8 03 51 04 78 05 a0 05 0e 06 3a 07 f0 0a ac 0d a0 0f 94 11 88 13 7c 15 64 19 58 1b 4c 1d 45 1f 34 21 e8 03 51 04 78 05 a0 05 0e 06 3a 07 f0 0a ac 0d a0 0f 94 11 88 13 7c 15 64 19 58 1b 4c 1d 45 1f 34 21 e8 03 51 04 78 05 a0 05 0e 06 3a 07 f0 0a ac 0d a0 0f 94 11 88 13 7c 15 64 19 58 1b 4c 1d 45 1f 34 21 e8 03 51 04 78 05 a0 05 0e 06 3a 07 f0 0a ac 0d a0 0f 94 11 88 13 7c 15 64 19 58 1b 4c 1d 45 1f 34 21 e8 03 51 04 78 05 a0 05 0e 06 3a 07 f0 0a ac 0d a0 0f 94 11 88 13 7c 15 64 19 58 1b 4c 1d 45 1f 1d 20 10 8e 8e 8e 8e 8e 8a 88 84 84 84 82 82 84 84 88 7a 7a 80 84 88 70 78 7e 82 88 70 78 7c 80 88 70 78 7c 80 88 70 78 7c 80 88 70 78 7c 80 88 70 78 7c 80 88 70 78 7c 80 88 89 16 83 82 02 00 00 07 40 06 03 6b 0a 36 00 00 20 03 40 cb d4 44 41 01 01 80 80 80 80 80 80 80 80 f2 dd c6 99 6a 53 38 2a 9a 74 4d 27 00 00 00 00 e5 c1 95 60 38 23 13 07 82 3d 45 1b a0 0f af 96 7d 64 00 00 00 00 00 00 20 4e 00 00 f8 79 cc 33 44 4f 4e 45 41"));
     }
     else
     {
@@ -1301,21 +1311,75 @@ void MainWindow::writeRequestPFC(QByteArray p_reply)
 }
 */
 
+void MainWindow::dicktator()
+{
+    qDebug() << "Sending Live Data " ;
+    serialport->write(QByteArray::fromHex("53 54 41 52 54 00 ff 01 00 80 15 06 b3 46 a6 00 0D 80 c3 ff 00 00 09 0f 94 ff 11 00 01 00 45 4e 44"));
+                                          //------------- -RPM---- -PoT- -FUEL -Tim- -BST- wt ai bt -TPS-             I% s1 s2 s3 s4 --------
+
+}
 
 void MainWindow::on_pushButton_clicked()
 {
 
-
-
-
-        serialport->write(QByteArray::fromHex("53 54 41 52 54 00 ff 02 01 80 53 06 76 47 8b 00 a3 ff c5 fb 00 00 09 0f 94 a0 25 00 01 00 45 4e 44"));
+    QTimer *timer = new QTimer(this);
+        connect(timer, SIGNAL(timeout()), this, SLOT(dicktator()));
+        timer->start(20); //time specified in ms
 
 }
-// 00 FF 00 = 460  00 FF 01 = 229 01ff00 =
 
-//726 75 a1 00
-//
-//721 75 a2 00
-//717 75 a3 00
-//713 75 a4 00
-//708 75 a5 00
+
+
+
+void MainWindow::on_SpeedSlider_sliderMoved(int position)
+{
+
+}
+
+void MainWindow::on_REVSlider_sliderMoved(int position)
+{
+    qDebug() << "Slider Position " << ui->REVSlider->sliderPosition();
+    int REV = ui->REVSlider->sliderPosition()*100;
+    qDebug() << "REV " << REV;
+    int checksum = 255; //calculated checksum from serial message 0xFF - each byte in message (except the last byte)
+    int newchecksum;
+    QByteArray checksumhex;
+    //Advanced Data
+    qDebug() << "Advanced old" << Advanced.toHex();
+    Advanced.remove(2,2);
+    Advanced.insert(2,((char)(REV & 0x00FF)));
+    Advanced.insert(3,((char)((REV & 0xFF00) >> 8)));
+    //Recalc Checksum for advanced
+    quint8 readwrite = Advanced[01];
+    for (int i = 0; i <= readwrite-1; i++)
+    {
+        checksum = checksum - Advanced[i];
+        checksumhex = QByteArray::number(checksum, 16).right(2);
+        checksumhex = checksumhex.rightJustified(2, '0');
+    }
+    qDebug() << "new Advanced checksum " << checksumhex;
+    newchecksum = checksumhex.toInt();
+//    Advanced.remove(33,1);
+    //Advanced.append(checksumhex);
+    qDebug() << "Advanced new " << Advanced.toHex();
+    //Basic Data
+    Basic.remove(8,2);
+    Basic.insert(8,((char)(REV & 0x00FF)));
+    Basic.insert(9,((char)((REV & 0xFF00) >> 8)));
+    //Recalc Checksum for Basic
+    readwrite = Basic[01];
+    for (int i = 0; i <= readwrite-1; i++)
+    {
+        checksum = checksum - Basic[i];
+        checksumhex = QByteArray::number(checksum, 16).right(2);
+        checksumhex = checksumhex.rightJustified(2, '0');
+    }
+    qDebug() << "new basic checksum " << checksumhex;
+    newchecksum = checksumhex.toInt();
+    qDebug() << "new basic int " << newchecksum;
+    qDebug() << "old basic checksum " << Basic.toHex();
+//    Basic.remove(22,1);
+//    Basic.append(checksumhex.toHex());
+    qDebug() << "new basic " << Basic.toHex();
+
+}
