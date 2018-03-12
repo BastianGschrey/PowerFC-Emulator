@@ -88,7 +88,7 @@ void MainWindow::dataAvailable()
     quint8 requesttype = receivedData[0];
     quint8 readwrite = receivedData[01];
     //serialport->blockSignals(true);
-    qDebug() <<  "Serial signal raised" << requesttype << readwrite;
+   // qDebug() <<  "Serial signal raised" << requesttype << readwrite;
 
 
 
@@ -1271,7 +1271,7 @@ void MainWindow::on_btnDisconnect_clicked()
     this->ui->btnconnect->setDisabled(false);
     serialport->close();
     ui->txtConsole->append("closed Serialport");
-    qDebug() << "Connection closed.";
+   // qDebug() << "Connection closed.";
 }
 
 
@@ -1288,7 +1288,7 @@ void MainWindow::on_btnconnect_clicked()
     serialport->setParity(serialport->NoParity);
     serialport->setFlowControl(QSerialPort::NoFlowControl);
     serialport->open(QIODevice::ReadWrite);
-    qDebug() << "Serialport initialized"<< ui->comboBox->currentText();
+    //qDebug() << "Serialport initialized"<< ui->comboBox->currentText();
     connect(this->serialport,SIGNAL(readyRead()),this,SLOT(dataAvailable()));
     ui->txtConsole->append("Serialport status  "+serialport->errorString() );
 
@@ -1296,7 +1296,7 @@ void MainWindow::on_btnconnect_clicked()
 /*
 void MainWindow::writeRequestPFC(QByteArray p_reply)
 {
-    qDebug() << "write request" << p_reply.toHex();
+   // qDebug() << "write request" << p_reply.toHex();
     m_replyData = p_reply;
     qint64 bytesWritten = m_serialport->write(p_reply);
 
@@ -1313,7 +1313,7 @@ void MainWindow::writeRequestPFC(QByteArray p_reply)
 
 void MainWindow::dicktator()
 {
-    qDebug() << "Sending Live Data " ;
+    //qDebug() << "Sending Live Data " ;
     serialport->write(QByteArray::fromHex("53 54 41 52 54 00 ff 01 00 80 15 06 b3 46 a6 00 0D 80 c3 ff 00 00 09 0f 94 ff 11 00 01 00 45 4e 44"));
                                           //------------- -RPM---- -PoT- -FUEL -Tim- -BST- wt ai bt -TPS-             I% s1 s2 s3 s4 --------
 
@@ -1333,14 +1333,14 @@ void MainWindow::on_pushButton_clicked()
 
 void MainWindow::on_SpeedSlider_sliderMoved(int position)
 {
-    qDebug() << "Slider Position " << ui->SpeedSlider->sliderPosition();
+    //qDebug() << "Slider Position " << ui->SpeedSlider->sliderPosition();
     int Speed = ui->SpeedSlider->sliderPosition();
-    qDebug() << "Speed " << Speed;
+    //qDebug() << "Speed " << Speed;
     int checksum = 255; //calculated checksum from serial message 0xFF - each byte in message (except the last byte)
     int newchecksum;
     QByteArray checksumhex;
     //Advanced Data
-    qDebug() << "Advanced old" << Advanced.toHex();
+    //qDebug() << "Advanced old" << Advanced.toHex();
     Advanced.remove(24,2);
     Advanced.insert(24,((char)(Speed & 0x00FF)));
     Advanced.insert(25,((char)((Speed & 0xFF00) >> 8)));
@@ -1352,11 +1352,11 @@ void MainWindow::on_SpeedSlider_sliderMoved(int position)
         checksumhex = QByteArray::number(checksum, 16).right(2);
         checksumhex = checksumhex.rightJustified(2, '0');
     }
-    qDebug() << "new Advanced checksum " << checksumhex;
+    //qDebug() << "new Advanced checksum " << checksumhex;
     newchecksum = checksumhex.toInt();
 //    Advanced.remove(33,1);
     //Advanced.append(checksumhex);
-    qDebug() << "Advanced new " << Advanced.toHex();
+    //qDebug() << "Advanced new " << Advanced.toHex();
     //Basic Data
     Basic.remove(10,2);
     Basic.insert(10,((char)(Speed & 0x00FF)));
@@ -1369,25 +1369,25 @@ void MainWindow::on_SpeedSlider_sliderMoved(int position)
         checksumhex = QByteArray::number(checksum, 16).right(2);
         checksumhex = checksumhex.rightJustified(2, '0');
     }
-    qDebug() << "new basic checksum " << checksumhex;
+    //qDebug() << "new basic checksum " << checksumhex;
     newchecksum = checksumhex.toInt();
-    qDebug() << "new basic int " << newchecksum;
-    qDebug() << "old basic checksum " << Basic.toHex();
+    //qDebug() << "new basic int " << newchecksum;
+    //qDebug() << "old basic checksum " << Basic.toHex();
 //    Basic.remove(22,1);
 //    Basic.append(checksumhex.toHex());
-    qDebug() << "new basic " << Basic.toHex();
+    //qDebug() << "new basic " << Basic.toHex();
 }
 
 void MainWindow::on_REVSlider_sliderMoved(int position)
 {
-    qDebug() << "Slider Position " << ui->REVSlider->sliderPosition();
+    //qDebug() << "Slider Position " << ui->REVSlider->sliderPosition();
     int REV = ui->REVSlider->sliderPosition()*100;
-    qDebug() << "REV " << REV;
+    //qDebug() << "REV " << REV;
     int checksum = 255; //calculated checksum from serial message 0xFF - each byte in message (except the last byte)
     int newchecksum;
     QByteArray checksumhex;
     //Advanced Data
-    qDebug() << "Advanced old" << Advanced.toHex();
+    //qDebug() << "Advanced old" << Advanced.toHex();
     Advanced.remove(2,2);
     Advanced.insert(2,((char)(REV & 0x00FF)));
     Advanced.insert(3,((char)((REV & 0xFF00) >> 8)));
@@ -1399,11 +1399,11 @@ void MainWindow::on_REVSlider_sliderMoved(int position)
         checksumhex = QByteArray::number(checksum, 16).right(2);
         checksumhex = checksumhex.rightJustified(2, '0');
     }
-    qDebug() << "new Advanced checksum " << checksumhex;
+    //qDebug() << "new Advanced checksum " << checksumhex;
     newchecksum = checksumhex.toInt();
 //    Advanced.remove(33,1);
     //Advanced.append(checksumhex);
-    qDebug() << "Advanced new " << Advanced.toHex();
+    //qDebug() << "Advanced new " << Advanced.toHex();
     //Basic Data
     Basic.remove(8,2);
     Basic.insert(8,((char)(REV & 0x00FF)));
@@ -1416,12 +1416,12 @@ void MainWindow::on_REVSlider_sliderMoved(int position)
         checksumhex = QByteArray::number(checksum, 16).right(2);
         checksumhex = checksumhex.rightJustified(2, '0');
     }
-    qDebug() << "new basic checksum " << checksumhex;
+    //qDebug() << "new basic checksum " << checksumhex;
     newchecksum = checksumhex.toInt();
-    qDebug() << "new basic int " << newchecksum;
-    qDebug() << "old basic checksum " << Basic.toHex();
+    //qDebug() << "new basic int " << newchecksum;
+    //qDebug() << "old basic checksum " << Basic.toHex();
 //    Basic.remove(22,1);
 //    Basic.append(checksumhex.toHex());
-    qDebug() << "new basic " << Basic.toHex();
+    //qDebug() << "new basic " << Basic.toHex();
 
 }
