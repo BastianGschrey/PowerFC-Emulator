@@ -13,8 +13,8 @@
 #include <QThread>
 #include <QtSerialPort/QSerialPortInfo>
 
-QByteArray Advanced = (QByteArray::fromHex("F0 20 88 13 1d 28 36 09 1d 02 00 00 00 00 00 00 ff 36 02 01 5d 5c 00 73 DC 00 00 00 00 4C 00 00 25"));
-QByteArray Basic = (QByteArray::fromHex("da 16 00 00 00 00 00 00 00 00 00 00 f6 02 00 00 5c 00 5b 00 7d 00 e3"));
+QByteArray Advanced = (QByteArray::fromHex("f02000001d2836091d02000000000000ff3602015d5c007300000000004c000025"));
+QByteArray Basic = (QByteArray::fromHex("da1600000000000000000000f60200005c005b007d00e3"));
 
 
 
@@ -1333,7 +1333,49 @@ void MainWindow::on_pushButton_clicked()
 
 void MainWindow::on_SpeedSlider_sliderMoved(int position)
 {
-
+    qDebug() << "Slider Position " << ui->SpeedSlider->sliderPosition();
+    int Speed = ui->SpeedSlider->sliderPosition();
+    qDebug() << "Speed " << Speed;
+    int checksum = 255; //calculated checksum from serial message 0xFF - each byte in message (except the last byte)
+    int newchecksum;
+    QByteArray checksumhex;
+    //Advanced Data
+    qDebug() << "Advanced old" << Advanced.toHex();
+    Advanced.remove(24,2);
+    Advanced.insert(24,((char)(Speed & 0x00FF)));
+    Advanced.insert(25,((char)((Speed & 0xFF00) >> 8)));
+    //Recalc Checksum for advanced
+    quint8 readwrite = Advanced[01];
+    for (int i = 0; i <= readwrite-1; i++)
+    {
+        checksum = checksum - Advanced[i];
+        checksumhex = QByteArray::number(checksum, 16).right(2);
+        checksumhex = checksumhex.rightJustified(2, '0');
+    }
+    qDebug() << "new Advanced checksum " << checksumhex;
+    newchecksum = checksumhex.toInt();
+//    Advanced.remove(33,1);
+    //Advanced.append(checksumhex);
+    qDebug() << "Advanced new " << Advanced.toHex();
+    //Basic Data
+    Basic.remove(10,2);
+    Basic.insert(10,((char)(Speed & 0x00FF)));
+    Basic.insert(11,((char)((Speed & 0xFF00) >> 8)));
+    //Recalc Checksum for Basic
+    readwrite = Basic[01];
+    for (int i = 0; i <= readwrite-1; i++)
+    {
+        checksum = checksum - Basic[i];
+        checksumhex = QByteArray::number(checksum, 16).right(2);
+        checksumhex = checksumhex.rightJustified(2, '0');
+    }
+    qDebug() << "new basic checksum " << checksumhex;
+    newchecksum = checksumhex.toInt();
+    qDebug() << "new basic int " << newchecksum;
+    qDebug() << "old basic checksum " << Basic.toHex();
+//    Basic.remove(22,1);
+//    Basic.append(checksumhex.toHex());
+    qDebug() << "new basic " << Basic.toHex();
 }
 
 void MainWindow::on_REVSlider_sliderMoved(int position)
